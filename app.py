@@ -24,6 +24,17 @@ endereco_model = api.model("Endereco", {
     "uf": fields.String(description="UF"),
 })
 
+# Modelo para resposta paginada
+paginacao_model = api.model("RespostaPaginada", {
+    "enderecos": fields.List(fields.Nested(endereco_model)),
+    "pagina_atual": fields.Integer,
+    "por_pagina": fields.Integer,
+    "total_enderecos": fields.Integer,
+    "total_paginas": fields.Integer,
+    "tem_proxima": fields.Boolean,
+    "tem_anterior": fields.Boolean
+})
+
 # Inicializa DB
 model.init_db()
 
@@ -31,10 +42,26 @@ model.init_db()
 
 @ns.route("")
 class EnderecoList(Resource):
-    @ns.marshal_list_with(endereco_model)
+    @ns.doc(params={
+        'pagina': {'description': 'Número da página', 'type': 'int', 'default': 1},
+        'por_pagina': {'description': 'Itens por página', 'type': 'int', 'default': 10}
+    })
+    @ns.marshal_with(paginacao_model)
     def get(self):
-        """Lista todos os endereços"""
-        return model.get_enderecos()
+        """Lista endereços com paginação"""
+        # Obtém parâmetros de paginação com valores padrão
+        pagina = request.args.get('pagina', 1, type=int)
+        por_pagina = request.args.get('por_pagina', 10, type=int)
+        
+        # Validação dos parâmetros
+        if pagina < 1:
+            pagina = 1
+        if por_pagina < 1 or por_pagina > 100:  # Limite máximo de 100 itens por página
+            por_pagina = 10
+        
+        # Obtém dados paginados
+        resultado = model.get_enderecos_paginados(pagina, por_pagina)
+        return resultado
 
     @ns.expect(api.model("CEPInput", {"cep": fields.String(required=True)}))
     @ns.marshal_with(endereco_model, code=201)

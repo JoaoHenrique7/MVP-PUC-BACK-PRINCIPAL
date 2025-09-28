@@ -1,9 +1,7 @@
 import sqlite3
 
-DB_NAME = "enderecos.db"
-
 def init_db():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect("enderecos.db")
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS enderecos (
@@ -18,8 +16,72 @@ def init_db():
     conn.commit()
     conn.close()
 
-def insert_endereco(cep: str, logradouro: str, bairro: str, localidade: str, uf: str):
-    conn = sqlite3.connect(DB_NAME)
+def get_enderecos_paginados(pagina=1, por_pagina=10):
+    offset = (pagina - 1) * por_pagina
+    
+    conn = sqlite3.connect("enderecos.db")
+    cursor = conn.cursor()
+    
+    # Obtém os endereços da página atual
+    cursor.execute("SELECT * FROM enderecos LIMIT ? OFFSET ?", (por_pagina, offset))
+    enderecos = cursor.fetchall()
+    
+    # Conta o total de endereços
+    cursor.execute("SELECT COUNT(*) FROM enderecos")
+    total_enderecos = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    # Calcula informações de paginação
+    total_paginas = (total_enderecos + por_pagina - 1) // por_pagina
+    tem_proxima = pagina < total_paginas
+    tem_anterior = pagina > 1
+    
+    # Converte para dicionários
+    enderecos_dict = []
+    for endereco in enderecos:
+        enderecos_dict.append({
+            "id": endereco[0],
+            "cep": endereco[1],
+            "logradouro": endereco[2],
+            "bairro": endereco[3],
+            "localidade": endereco[4],
+            "uf": endereco[5]
+        })
+    
+    return {
+        "enderecos": enderecos_dict,
+        "pagina_atual": pagina,
+        "por_pagina": por_pagina,
+        "total_enderecos": total_enderecos,
+        "total_paginas": total_paginas,
+        "tem_proxima": tem_proxima,
+        "tem_anterior": tem_anterior
+    }
+
+# Mantenha as outras funções existentes (get_enderecos, insert_endereco, update_endereco, delete_endereco)
+def get_enderecos():
+    conn = sqlite3.connect("enderecos.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM enderecos")
+    enderecos = cursor.fetchall()
+    conn.close()
+    
+    enderecos_dict = []
+    for endereco in enderecos:
+        enderecos_dict.append({
+            "id": endereco[0],
+            "cep": endereco[1],
+            "logradouro": endereco[2],
+            "bairro": endereco[3],
+            "localidade": endereco[4],
+            "uf": endereco[5]
+        })
+    
+    return enderecos_dict
+
+def insert_endereco(cep, logradouro, bairro, localidade, uf):
+    conn = sqlite3.connect("enderecos.db")
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO enderecos (cep, logradouro, bairro, localidade, uf)
@@ -28,42 +90,24 @@ def insert_endereco(cep: str, logradouro: str, bairro: str, localidade: str, uf:
     conn.commit()
     conn.close()
 
-def get_enderecos():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM enderecos")
-    rows = cursor.fetchall()
-    conn.close()
-    return [
-        {
-            "id": row[0],
-            "cep": row[1],
-            "logradouro": row[2],
-            "bairro": row[3],
-            "localidade": row[4],
-            "uf": row[5],
-        }
-        for row in rows
-    ]
-
-def update_endereco(endereco_id: int, logradouro: str, bairro: str, localidade: str, uf: str) -> int:
-    conn = sqlite3.connect(DB_NAME)
+def update_endereco(endereco_id, logradouro, bairro, localidade, uf):
+    conn = sqlite3.connect("enderecos.db")
     cursor = conn.cursor()
     cursor.execute("""
-        UPDATE enderecos
+        UPDATE enderecos 
         SET logradouro=?, bairro=?, localidade=?, uf=?
         WHERE id=?
     """, (logradouro, bairro, localidade, uf, endereco_id))
     conn.commit()
-    updated = cursor.rowcount
+    rows_affected = cursor.rowcount
     conn.close()
-    return updated
+    return rows_affected
 
-def delete_endereco(endereco_id: int) -> int:
-    conn = sqlite3.connect(DB_NAME)
+def delete_endereco(endereco_id):
+    conn = sqlite3.connect("enderecos.db")
     cursor = conn.cursor()
     cursor.execute("DELETE FROM enderecos WHERE id=?", (endereco_id,))
     conn.commit()
-    deleted = cursor.rowcount
+    rows_affected = cursor.rowcount
     conn.close()
-    return deleted
+    return rows_affected
